@@ -40,7 +40,7 @@
 
         // Highlight element on hover
         iframeDocument.body.addEventListener('mouseover', function(event) {
-            event.target.style.outline = '2px solid blue';
+            event.target.style.outline = '2px dashed #06b6d4';
         });
 
         iframeDocument.body.addEventListener('mouseout', function(event) {
