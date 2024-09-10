@@ -37,101 +37,7 @@ class BrowserController extends Controller
         // return back()->withErrors(['error' => 'Failed to simulate browser']);
     }
 
-    public function fetchHtmlWithGuzzle(Request $request)
-    {
-        $url = $request->input('url');
-
-        if (filter_var($url, FILTER_VALIDATE_URL)) {
-            $client = new Client();
-            try {
-                $response = $client->request('GET', $url, [
-                    'headers' => [
-                        'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    ],
-                ]);
-
-                $htmlContent = $response->getBody()->getContents();
-
-                return response()->json([
-                    'status' => 'success',
-                    'html' => $htmlContent,
-                ]);
-
-            } catch (\Exception $e) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Failed to retrieve content: ' . $e->getMessage(),
-                ]);
-            }
-        } else {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid URL',
-            ]);
-        }
-    }
-    public function fetchHtmlWithFileGetContents(Request $request)
-    {
-        $url = $request->input('url');
-    
-        if (filter_var($url, FILTER_VALIDATE_URL)) {
-            $contextOptions = [
-                "http" => [
-                    "header" => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\r\n"
-                ]
-            ];
-    
-            $context = stream_context_create($contextOptions);
-            $htmlContent = @file_get_contents($url, false, $context);
-    
-            if ($htmlContent !== false) {
-                $dom = new \DOMDocument();
-                @$dom->loadHTML($htmlContent); 
-                    
-                $links = $dom->getElementsByTagName('link');
-                foreach ($links as $link) {
-                    if ($link->getAttribute('rel') == 'stylesheet') {
-                        $cssUrl = $link->getAttribute('href');
-    
-                        if (!parse_url($cssUrl, PHP_URL_SCHEME)) {
-                            $cssUrl = rtrim($url, '/') . '/' . ltrim($cssUrl, '/');
-                        }
-    
-                        $cssContent = @file_get_contents($cssUrl, false, $context);
-                        if ($cssContent !== false) {
-                            $styleElement = $dom->createElement('style', $cssContent);
-                            $styleElement->setAttribute('type', 'text/css');
-                                
-                            $head = $dom->getElementsByTagName('head')->item(0);
-                            $head->appendChild($styleElement);
-    
-                            $link->parentNode->removeChild($link);
-                        } else {
-                            return response()->json([
-                                'status' => 'error',
-                                'message' => "Failed to retrieve CSS file: $cssUrl",
-                            ]);
-                        }
-                    }
-                }
-    
-                return response()->json([
-                    'status' => 'success',
-                    'html' => $dom->saveHTML(),
-                ]);
-            } else {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Failed to retrieve content using file_get_contents.',
-                ]);
-            }
-        } else {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid URL',
-            ]);
-        }
-    }
+ 
 
     public function fetchHtml(Request $request)
     {
@@ -162,6 +68,7 @@ class BrowserController extends Controller
             ]);
 
             $htmlContent = $response->getBody()->getContents();
+            Log::info('HTML CONTENT: ' . $htmlContent); 
             $usedGuzzle = true; 
             Log::info('Guzzle used successfully for URL: ' . $url); 
         } catch (\Exception $e) {
@@ -289,5 +196,102 @@ class BrowserController extends Controller
             }
         }
         return '/' . implode('/', $absolutes);
+    }
+
+
+    public function fetchHtmlWithGuzzle(Request $request)
+    {
+        $url = $request->input('url');
+
+        if (filter_var($url, FILTER_VALIDATE_URL)) {
+            $client = new Client();
+            try {
+                $response = $client->request('GET', $url, [
+                    'headers' => [
+                        'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    ],
+                ]);
+
+                $htmlContent = $response->getBody()->getContents();
+
+                return response()->json([
+                    'status' => 'success',
+                    'html' => $htmlContent,
+                ]);
+
+            } catch (\Exception $e) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Failed to retrieve content: ' . $e->getMessage(),
+                ]);
+            }
+        } else {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid URL',
+            ]);
+        }
+    }
+    public function fetchHtmlWithFileGetContents(Request $request)
+    {
+        $url = $request->input('url');
+    
+        if (filter_var($url, FILTER_VALIDATE_URL)) {
+            $contextOptions = [
+                "http" => [
+                    "header" => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\r\n"
+                ]
+            ];
+    
+            $context = stream_context_create($contextOptions);
+            $htmlContent = @file_get_contents($url, false, $context);
+    
+            if ($htmlContent !== false) {
+                $dom = new \DOMDocument();
+                @$dom->loadHTML($htmlContent); 
+                    
+                $links = $dom->getElementsByTagName('link');
+                foreach ($links as $link) {
+                    if ($link->getAttribute('rel') == 'stylesheet') {
+                        $cssUrl = $link->getAttribute('href');
+    
+                        if (!parse_url($cssUrl, PHP_URL_SCHEME)) {
+                            $cssUrl = rtrim($url, '/') . '/' . ltrim($cssUrl, '/');
+                        }
+    
+                        $cssContent = @file_get_contents($cssUrl, false, $context);
+                        if ($cssContent !== false) {
+                            $styleElement = $dom->createElement('style', $cssContent);
+                            $styleElement->setAttribute('type', 'text/css');
+                                
+                            $head = $dom->getElementsByTagName('head')->item(0);
+                            $head->appendChild($styleElement);
+    
+                            $link->parentNode->removeChild($link);
+                        } else {
+                            return response()->json([
+                                'status' => 'error',
+                                'message' => "Failed to retrieve CSS file: $cssUrl",
+                            ]);
+                        }
+                    }
+                }
+    
+                return response()->json([
+                    'status' => 'success',
+                    'html' => $dom->saveHTML(),
+                ]);
+            } else {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Failed to retrieve content using file_get_contents.',
+                ]);
+            }
+        } else {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid URL',
+            ]);
+        }
     }
 }
